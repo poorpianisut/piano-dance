@@ -38,7 +38,7 @@ h1 { font-family: var(--f-display); font-weight: 800; font-size: clamp(28px, 5vw
 .lede { margin: 0; color: var(--muted); max-width: 62ch; }
 .keys { height: 10px; border-radius: 5px; background: var(--dancers); }
 .keylab { display: flex; justify-content: space-between; font: 12px/1.4 var(--f-mono); color: var(--muted); margin-top: -2px; }
-.keylab span:nth-child(2) { margin-left: -6%; }
+
 .stage { position: relative; width: 100%; max-width: 100%; aspect-ratio: 16 / 9; border-radius: var(--r); overflow: hidden; background: #cfeccf; border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(40, 80, 40, .12); }
 .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .badge { position: absolute; left: 12px; top: 10px; font: 600 12px/1 var(--f-body); letter-spacing: .08em; color: var(--fg); background: rgba(255, 255, 255, .78); border: 1px solid rgba(40, 80, 40, .15); padding: 6px 9px; border-radius: 999px; }
@@ -77,8 +77,8 @@ dl.stats dt { color: var(--muted); } dl.stats dd { margin: 0; font-family: var(-
   <header>
     <h1>ピアノダンス</h1>
     <p class="lede">ピアノの音源に合わせて、森の切り株のステージで3匹が踊る動画を作ります。88鍵それぞれに違う振り付けがあり、音の大きさで動きの大きさが変わります。</p>
-    <div class="keys" role="img" aria-label="88鍵の担当: 左の子が低音、真ん中の子が中音、右の子が高音"></div>
-    <div class="keylab" aria-hidden="true"><span>A0 左の子</span><span>E3 真ん中の子</span><span>D5 右の子 C8</span></div>
+    <div class="keys" role="img" aria-label="担当: 左の子が低い音、真ん中の子が真ん中の音、右の子が高い音"></div>
+    <div class="keylab" aria-hidden="true"><span>低い音 左の子</span><span>真ん中の子</span><span>右の子 高い音</span></div>
   </header>
 
   <div class="stage" id="stage">
@@ -136,7 +136,7 @@ dl.stats dt { color: var(--muted); } dl.stats dd { margin: 0; font-family: var(-
   <div class="notes">
     <div><h3>音源は外に出ません</h3><p>読み込み・解析・動画づくりは、すべてこのブラウザの中で行います。音源や動画がどこかへ送られることはありません。</p></div>
     <div><h3>対応ブラウザ</h3><p>パソコンの Chrome または Edge の最新版がおすすめです。書き出しの速さはパソコンの性能によります。</p></div>
-    <div><h3>振り付けのきまり</h3><p>音域ごとに「ドスン・ステップ・ゆらゆら・うで・くるり・ぴょん・きらきら」の7系統。ド〜シの12音で向きや手足を変え、88鍵すべて違う振りになります。3つ以上の音が同時に鳴ったときや強い音では、3匹そろって踊ります。</p></div>
+    <div><h3>振り付けのきまり</h3><p>曲で使われた音域を3匹で分担し、低い音から順に「ドスン・ステップ・ゆらゆら・うで・くるり・ぴょん・きらきら」の7系統を割り当てます。鍵ごとに向きや手足、速さを変えるので、音ごとに違う振りになります。音の強さは曲の中で比べて決めるので、静かな曲でもしっかり踊ります。とくに強い音や大きな和音では3匹そろって踊ります。</p></div>
   </div>
 </div>
 
@@ -203,10 +203,10 @@ dl.stats dt { color: var(--muted); } dl.stats dd { margin: 0; font-family: var(-
   // ---------- 振り付け: 鍵 k の振りを、経過時間 a に対するポーズの差分として返す ----------
   // ポーズ: dx 横移動, dy 高さ, sq つぶれ(+)/のび(-), tilt 傾き, spin 体の向き, flip 宙返り,
   //         armL/armR 腕の上げ(0..1.2), wave 手振り, clap 拍手(0..1), footL/footR 足上げ, happy にっこり目
-  function move(k, a, amp, dur) {
-    const fam = familyOf(k), pc = (k + 21) % 12;
+  function move(k, a, amp, dur, famIn) {
+    const fam = famIn != null ? famIn : familyOf(k), pc = (k + 21) % 12, oct = Math.floor((k + 21) / 12);
     const dir = pc % 2 ? 1 : -1;
-    const spd = 0.85 + 0.30 * ((pc * 5) % 12) / 11;           // 音ごとに少し速さを変える
+    const spd = 0.85 + 0.30 * ((pc * 5 + oct * 3) % 12) / 11;  // 音ごと(オクターブ違いも)に少し速さを変える
     const A = (t) => a / spd;
     const s = A();
     const p = {};
@@ -396,7 +396,7 @@ dl.stats dt { color: var(--muted); } dl.stats dd { margin: 0; font-family: var(-
       const u = clamp(up, 0, 1.25);
       const wv = side === 1 ? P.wave : -P.wave * 0.3;
       const x = Math.sin(az) * r * (0.98 - 0.22 * u) + (side * 0.06 * wv * r);
-      const y = r * 0.12 - u * r * 0.78 + Math.abs(wv) * r * 0.05;
+      const y = r * 0.12 - u * r * 0.78 + Math.abs(wv) * r * 0.05 + clamp(P.clap, 0, 1) * r * (0.62 + u * 0.6);   // 拍手はおなかの前で
       parts.push({ d: Math.cos(az) + (P.clap > 0.3 ? 0.4 : 0), draw: () => ball(g, x, y, r * 0.22, r * 0.24, C.col) });
     }
     // しっぽ(レモン)
@@ -487,23 +487,42 @@ dl.stats dt { color: var(--muted); } dl.stats dd { margin: 0; font-family: var(-
         const c = clusters[clusters.length - 1];
         if (c && n.onset - c.t <= 0.06) c.notes.push(n); else clusters.push({ t: n.onset, notes: [n] });
       }
+      // 曲に合わせた割り当て: その曲で使われた音域を、音の数が3等分になるように3匹で分担し、
+      // 振り付けの7系統も同じように音の数で均等に割る(低い音ほど重い振り、高い音ほど跳ねる振りの順は同じ)。
+      // 音の強さも曲の中での相対的な強さで評価する(静かな曲でもしっかり踊る)。
+      const keysS = ns.map((n) => n.key).sort((a, b) => a - b);
+      const velS = ns.map((n) => n.velocity).sort((a, b) => a - b);
+      const rankIn = (arr, x) => {
+        let lo = 0, hi = arr.length; while (lo < hi) { const m = (lo + hi) >> 1; if (arr[m] < x) lo = m + 1; else hi = m; }
+        let lo2 = lo, hi2 = arr.length; while (lo2 < hi2) { const m = (lo2 + hi2) >> 1; if (arr[m] <= x) lo2 = m + 1; else hi2 = m; }
+        return arr.length ? (lo + lo2) / 2 / arr.length : 0.5;
+      };
+      const adaptive = ns.length >= 24;
+      const own = (k) => (adaptive ? Math.min(2, Math.floor(rankIn(keysS, k) * 3)) : ownerOf(k));
+      // 系統の割合: 大きな動き(ぴょん・きらきら)は少なめに
+      const FAM_CUM = [0.16, 0.32, 0.48, 0.64, 0.80, 0.92, 1.01];
+      const famOf = (k) => { if (!adaptive) return familyOf(k); const r = rankIn(keysS, k); let f = 0; while (r >= FAM_CUM[f]) f++; return Math.min(6, f); };
+      const vrel = (v) => (adaptive ? rankIn(velS, v) : v / 127);
+      this.ownerOf = own; this.familyOf = famOf;
       const ev = [[], [], []], sp = [];
       for (const c of clusters) {
         const loudest = c.notes.reduce((m, n) => (n.velocity > m.velocity ? n : m));
-        const unison = c.notes.length >= 3 || loudest.velocity >= 108;
+        const unison = c.notes.length >= 5 || vrel(loudest.velocity) >= 0.93;
         for (let ci = 0; ci < 3; ci++) {
-          const own = c.notes.filter((n) => ownerOf(n.key) === ci);
-          let n = own.length ? own.reduce((m, x) => (x.velocity > m.velocity || (x.velocity === m.velocity && x.key > m.key) ? x : m)) : null;
+          const own_ = c.notes.filter((n) => own(n.key) === ci);
+          let n = own_.length ? own_.reduce((m, x) => (x.velocity > m.velocity || (x.velocity === m.velocity && x.key > m.key) ? x : m)) : null;
           let amp = 1;
           if (!n && unison) { n = loudest; amp = 0.75; }
           if (!n) continue;
-          const v = clamp(n.velocity / 127, 0.05, 1);
-          ev[ci].push({ t: c.t, key: n.key, amp: amp * (0.4 + 0.6 * v), dur: clamp(n.duration || 0.4, 0.35, 1.4) });
+          const v = clamp(0.3 * n.velocity / 127 + 0.7 * vrel(n.velocity), 0.05, 1);
+          let fam = famOf(n.key);
+          if (fam === 6 && vrel(n.velocity) < 0.5) fam = 5;      // 宙返りは強い音だけ
+          ev[ci].push({ t: c.t, key: n.key, fam, amp: amp * (0.4 + 0.6 * v), dur: clamp(n.duration || 0.4, 0.35, 1.4) });
         }
         // 演出の粒(星・音符・土ぼこり)
-        const v = clamp(loudest.velocity / 127, 0.05, 1);
-        const fam = familyOf(loudest.key);
-        const who = unison ? [0, 1, 2] : [...new Set(c.notes.map((n) => ownerOf(n.key)))];
+        const v = clamp(0.3 * loudest.velocity / 127 + 0.7 * vrel(loudest.velocity), 0.05, 1);
+        const fam = famOf(loudest.key);
+        const who = unison ? [0, 1, 2] : [...new Set(c.notes.map((n) => own(n.key)))];
         const bright = loudest.brightness != null ? loudest.brightness : 0.3;
         for (const ci of who) {
           const seed = c.t * 31.7 + ci * 7.3;
@@ -540,7 +559,7 @@ dl.stats dt { color: var(--muted); } dl.stats dd { margin: 0; font-family: var(-
         if (a > e.dur + 1.6) continue;
         let w = 1;
         if (i + 1 < lo) w = Math.exp(-(t - E[i + 1].t) / 0.15);
-        const m = move(e.key, a, e.amp, e.dur);
+        const m = move(e.key, a, e.amp, e.dur, e.fam);
         for (const k of POSE_KEYS) if (m[k]) P[k] += m[k] * w;
         for (const k of ROT_KEYS) if (m[k]) P[k] += m[k];
       }
